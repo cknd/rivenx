@@ -316,12 +316,30 @@ RX_INLINE void rx_dispatch_external1(id target, NSString* external_name, uint16_
 #pragma mark -
 #pragma mark caches
 
+
 - (void)_emptyPictureCaches
 {
-  [_picture_cache removeAllObjects];
-  for (NSMutableDictionary* archive_cache in _dynamic_texture_cache)
-    [archive_cache removeAllObjects];
+    [_picture_cache removeAllObjects];
+    
+    // <hack>
+    // the game crashes reproducibly in two situations:
+    // 1: browse through Gehn's lab journal, past the page with the dome codes.
+    // 2: on the same island: open the spinning dome, enter some code, press the button, step back out.
+    // seems that in these cases, _dynamic_texture_cache contains one or more NSPathStore2 string(s) instead of dict(s).
+    // (thus [archive_cache removeAllObjects] throws an "[NSPathStore2 removeAllObjects]: unrecognized selector ...")
+    // no idea about the cause, but burying that exception allows me to keep playing for now. so here goes:
+    for (NSMutableDictionary* archive_cache in _dynamic_texture_cache)
+        @try {
+            [archive_cache removeAllObjects];
+        }
+    @catch (NSException *ex) {
+        NSLog(@"%@ ",ex.name);
+        NSLog(@"Reason: %@ ",ex.reason);
+        [_dynamic_texture_cache removeAllObjects]; // in that case, throw away the whole cache.
+    }
+    // </hack>
 }
+
 
 - (void)_resetMovieProxies
 {
